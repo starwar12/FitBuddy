@@ -1244,7 +1244,6 @@ class MainViewModel(
         val recordCount = runCatching { repository.getTotalRecordCount() }.getOrDefault(0)
         val info = HeartbeatInfo(
             aiProvider = s.provider.name,
-            username = s.usernameForHeartbeat,
             recordCount = recordCount,
             isDeveloper = s.developerModeUnlocked,
             signupDate = s.signupDate

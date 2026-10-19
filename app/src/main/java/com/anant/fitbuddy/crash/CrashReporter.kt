@@ -27,10 +27,9 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** Coarse snapshot attached to daily heartbeats (username is device-local display name). */
+/** Coarse, name-free snapshot attached to daily heartbeats (PIA privacy issue 3). */
 data class HeartbeatInfo(
     val aiProvider: String,
-    val username: String = "",
     val recordCount: Int = 0,
     /** True when Settings developer tools are unlocked on this install. */
     val isDeveloper: Boolean = false,
@@ -267,25 +266,19 @@ object CrashReporter {
      * Anonymous heartbeat: Crons check-in (OK) plus Metrics/Logs with device/app/AI
      * attributes for fleet breakdown (Explore → Metrics / Logs — not Issues).
      * Callers gate once-per-day / once-per-update. Returns true if the check-in was sent.
-     * Sent regardless of [reportingEnabled] — heartbeats are fleet install/version
-     * telemetry, not crash reports, so the crash-reporting opt-out doesn't gate them.
+     * Gated by [reportingEnabled]: the settings screen offers heartbeats as part of crash
+     * reporting, so turning that off stops them too. A blocked Sentry host is treated as the
+     * user's choice — the heartbeat is skipped instead of relayed (PIA privacy issue 3).
      */
     fun sendHeartbeat(info: HeartbeatInfo, kind: HeartbeatKind = HeartbeatKind.DAILY): Boolean {
-        if (!ready.get()) return false
+        if (!ready.get() || !reportingEnabled) return false
 
-        // Every heartbeat (unless force-proxy is on): probe direct Sentry first. Only latch
-        // proxy for the rest of this UTC day when the ingest host is unreachable. Callers
-        // persist the day latch separately and must never flip forceSentryProxyMode.
         if (!forcedProxyMode.get() && SentryHeartbeatProxy.isAvailable()) {
             val reachable = SentryHeartbeatProxy.isDirectIngestReachable()
-            if (reachable) {
-                proxyModeActive.set(false)
-                autoProxyLatchUtcDay = null
-            } else {
-                proxyModeActive.set(true)
-                autoProxyLatchUtcDay = utcToday()
-            }
-            Log.i(TAG, "heartbeat $kind: direct ingest ${if (reachable) "reachable" else "blocked → proxy"}")
+            proxyModeActive.set(false)
+            autoProxyLatchUtcDay = null
+            Log.i(TAG, "heartbeat $kind: direct ingest ${if (reachable) "reachable" else "blocked → skipped"}")
+            if (!reachable) return false
         }
 
         // Send via the SDK. When proxyModeActive is on, SentryProxyTransport forwards the
@@ -356,10 +349,6 @@ object CrashReporter {
             add(SentryAttribute.stringAttribute("app_version", BuildConfig.VERSION_NAME))
             add(SentryAttribute.stringAttribute("app_build", BuildConfig.VERSION_CODE.toString()))
             add(SentryAttribute.stringAttribute("app_id", BuildConfig.APPLICATION_ID))
-            val username = info.username.trim()
-            if (username.isNotEmpty()) {
-                add(SentryAttribute.stringAttribute("username", username.take(128)))
-            }
             add(SentryAttribute.integerAttribute("record_count", info.recordCount))
             add(SentryAttribute.booleanAttribute("is_developer", info.isDeveloper))
             val signup = info.signupDate.trim()

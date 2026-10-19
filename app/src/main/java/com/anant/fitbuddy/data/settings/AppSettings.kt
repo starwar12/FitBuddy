@@ -315,18 +315,6 @@ data class AppSettings(
     val hasUserName: Boolean
         get() = displayFirstName.isNotEmpty()
 
-    /** "First Last" for Sentry heartbeats; blank when no name. */
-    val usernameForHeartbeat: String
-        get() {
-            val first = firstName.trim()
-            val last = lastName.trim()
-            return when {
-                first.isEmpty() -> ""
-                last.isEmpty() -> first
-                else -> "$first $last"
-            }
-        }
-
     /** True when cloud backup is opted in and this build has a vault URI + Support ID. */
     val isMongoBackupConfigured: Boolean
         get() = cloudBackupEnabled &&

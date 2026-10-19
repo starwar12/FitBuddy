@@ -41,7 +41,6 @@ class HeartbeatReceiver : BroadcastReceiver() {
                     runCatching { app.repository.getTotalRecordCount() }.getOrDefault(0)
                 val info = HeartbeatInfo(
                     aiProvider = settings.provider.name,
-                    username = settings.usernameForHeartbeat,
                     recordCount = recordCount,
                     isDeveloper = settings.developerModeUnlocked,
                     signupDate = settings.signupDate

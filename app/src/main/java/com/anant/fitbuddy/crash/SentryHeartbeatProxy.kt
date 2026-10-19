@@ -210,12 +210,6 @@ internal object SentryHeartbeatProxy {
             .putStringAttr("release", release)
             .putStringAttr("environment", environment)
             .putStringAttr("transport", "proxy")
-            .apply {
-                val username = info.username.trim()
-                if (username.isNotEmpty()) {
-                    putStringAttr("username", username.take(128))
-                }
-            }
             .putIntAttr("record_count", info.recordCount.toLong())
             .putBoolAttr("is_developer", info.isDeveloper)
 

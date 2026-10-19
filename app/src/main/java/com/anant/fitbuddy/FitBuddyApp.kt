@@ -289,7 +289,6 @@ class FitBuddyApp : Application(), ImageLoaderFactory {
         val recordCount = runCatching { repository.getTotalRecordCount() }.getOrDefault(0)
         return HeartbeatInfo(
             aiProvider = settings.provider.name,
-            username = settings.usernameForHeartbeat,
             recordCount = recordCount,
             isDeveloper = settings.developerModeUnlocked,
             signupDate = settings.signupDate
