@@ -3928,28 +3928,21 @@ class MainViewModel(
     }
 
     /**
-     * The "User State Context" block (Step 3) sent to the AI so estimates can be personalised
-     * (e.g. body weight strongly affects calories burned during exercise).
+     * The "User State Context" block (Step 3) sent with every meal/exercise estimate. Limited to
+     * what the analyze prompt uses: weight, age and sex for exercise burn, plus remaining-calorie
+     * awareness. Body composition, goals and the user's name stay on the device (data
+     * minimisation, PIA privacy issue 1).
      */
     private fun buildUserStateContext(): String {
         val state = dashboardState.value
         val profile = state.profile
-        val latest = latestMeasurement.value
         return JSONObject().apply {
             put("date", _selectedDate.value)
             put("age", profile?.age ?: JSONObject.NULL)
             put("sex", profile?.sex ?: JSONObject.NULL)
-            put("goal", profile?.goal ?: JSONObject.NULL)
-            put("activity_level", profile?.activityLevel ?: JSONObject.NULL)
             put("weight_kg", profile?.weightKg ?: JSONObject.NULL)
-            put("height_cm", profile?.heightCm ?: JSONObject.NULL)
             put("daily_target_calories", state.targetCalories)
-            put("target_protein_g", state.targetProtein)
-            put("consumed_calories_today", state.consumedCalories)
-            put("burned_calories_today", state.burnedCalories)
-            put("net_calories_today", state.netCalories)
             put("remaining_calories_today", state.remainingCalories)
-            put("latest_measurement", latest?.let(::measurementJson) ?: JSONObject.NULL)
         }.toString()
     }
 
