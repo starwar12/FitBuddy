@@ -94,7 +94,8 @@ class BackupSettingsTest {
             )
         )
         val restored = BackupSettings.from(original).toAppSettings()
-        assertEquals(normalizeForBackupParity(original), normalizeForBackupParity(restored))
+        // Everything round-trips except AI credentials, which backups omit (PIA privacy issue 2).
+        assertEquals(normalizeForBackupParity(original.withoutAiCredentials()), normalizeForBackupParity(restored))
         assertEquals(0L, restored.mongoLastUploadAt)
         assertEquals(false, restored.mongoLastUploadOk)
         assertEquals("", restored.mongoLastError)
@@ -142,7 +143,7 @@ class BackupSettingsTest {
     }
 
     @Test
-    fun roundTrip_preservesAiKeysAndReminder() {
+    fun roundTrip_dropsAiKeysButPreservesSettingsAndReminder() {
         val original = AppSettings.withKeys(
             openRouterKeys = listOf("or-key-1", "or-key-2"),
             geminiKeys = listOf("gem-key"),
@@ -160,10 +161,11 @@ class BackupSettingsTest {
         )
         val restored = BackupSettings.from(original).toAppSettings()
         assertEquals(AiProvider.GEMINI, restored.provider)
-        assertEquals(listOf("or-key-1", "or-key-2"), restored.openRouterApiKeys)
-        assertEquals("or-oauth", restored.openRouterOAuthKey)
-        assertEquals(listOf("gem-key"), restored.geminiApiKeys)
-        assertEquals("gem-key", restored.geminiApiKey)
+        // AI credentials never leave the device in a backup (PIA privacy issue 2).
+        assertTrue(restored.openRouterApiKeys.isEmpty())
+        assertEquals("", restored.openRouterOAuthKey)
+        assertTrue(restored.geminiApiKeys.isEmpty())
+        assertEquals("gemini-2.5-flash", restored.geminiModel)
         assertEquals(false, restored.dailyLogReminderEnabled)
         assertEquals(21, restored.dailyLogReminderHour)
         assertEquals(30, restored.dailyLogReminderMinute)
@@ -398,6 +400,14 @@ class BackupSettingsTest {
      * Strip ephemeral upload status and normalize active keys the same way restore does,
      * so equality fails if a new [AppSettings] field is forgotten in [BackupSettings].
      */
+    private fun AppSettings.withoutAiCredentials(): AppSettings = copy(
+        openRouterApiKeys = emptyList(), openRouterApiKey = "", openRouterOAuthKey = "",
+        geminiApiKeys = emptyList(), geminiApiKey = "",
+        ollamaApiKeys = emptyList(), ollamaApiKey = "",
+        openAiApiKeys = emptyList(), openAiApiKey = "",
+        customApiKeys = emptyList(), customApiKey = ""
+    )
+
     private fun normalizeForBackupParity(settings: AppSettings): AppSettings {
         val or = settings.keysFor(AiProvider.OPENROUTER)
         val gem = settings.keysFor(AiProvider.GEMINI)

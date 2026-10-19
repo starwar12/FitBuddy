@@ -3114,9 +3114,9 @@ private fun AboutLinkRow(label: String, value: String, url: String) {
 
 /**
  * Shown when the user turns on cloud backup (Requirement 12). Explains that backups are encrypted
- * on-device before upload (12.3), lets the user copy their Support ID, and offers an optional
- * password (blank → Support ID default, 12.4). Non-blank passwords are validated 8–128 (12.5).
- * Cancelling leaves cloud backup off and performs no upload (12.6).
+ * on-device before upload (12.3), lets the user copy their Support ID, and requires a password
+ * of 8–128 characters: the Support ID is shared in bug reports, so it never protects a backup
+ * (PIA privacy issue 2). Cancelling leaves cloud backup off and performs no upload (12.6).
  */
 @Composable
 private fun EnableCloudBackupDialog(
@@ -3131,15 +3131,15 @@ private fun EnableCloudBackupDialog(
 
     val isBlank = password.isEmpty() || password.all { it.isWhitespace() }
     val passwordsMatch = password == confirmPassword
-    val lengthValid = isBlank || password.length in 8..128
+    val lengthValid = password.length in 8..128
 
     val validationError = when {
-        !lengthValid && password.length < 8 -> "Password must be at least 8 characters"
-        !lengthValid -> "Password must be 128 characters or fewer"
+        !isBlank && password.length < 8 -> "Password must be at least 8 characters"
+        !isBlank && !lengthValid -> "Password must be 128 characters or fewer"
         !isBlank && confirmPassword.isNotEmpty() && !passwordsMatch -> "Passwords do not match"
         else -> null
     }
-    val canConfirm = !busy && (isBlank || (lengthValid && passwordsMatch))
+    val canConfirm = !busy && !isBlank && lengthValid && passwordsMatch
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
@@ -3160,30 +3160,29 @@ private fun EnableCloudBackupDialog(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    "Optionally set a password. Leave blank to use default (Support ID) protection.",
+                    "Choose a password to encrypt your backup. You'll need it, together with your " +
+                        "Support ID, to restore. Your Support ID alone can't unlock the backup.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Password (optional)") },
+                    label = { Text("Password") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     isError = validationError != null && confirmPassword.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth()
                 )
-                if (!isBlank) {
-                    OutlinedTextField(
-                        value = confirmPassword,
-                        onValueChange = { confirmPassword = it },
-                        label = { Text("Confirm password") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        isError = confirmPassword.isNotEmpty() && !passwordsMatch,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = { Text("Confirm password") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    isError = confirmPassword.isNotEmpty() && !passwordsMatch,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 if (validationError != null) {
                     Text(
                         text = validationError,
@@ -3200,7 +3199,7 @@ private fun EnableCloudBackupDialog(
             TextButton(
                 onClick = {
                     onCopySupportId()
-                    onConfirm(if (isBlank) null else password.toCharArray())
+                    onConfirm(password.toCharArray())
                 },
                 enabled = canConfirm
             ) { Text("Copy ID & enable") }
@@ -3222,16 +3221,16 @@ private fun ChangeCloudPasswordDialog(
 
     val isBlank = newPassword.isEmpty() || newPassword.all { it.isWhitespace() }
     val passwordsMatch = newPassword == confirmPassword
-    val lengthValid = isBlank || newPassword.length in 8..128
+    val lengthValid = newPassword.length in 8..128
 
     // Derive validation error
     val validationError = when {
-        !lengthValid && newPassword.length < 8 -> "Password must be at least 8 characters"
-        !lengthValid -> "Password must be 128 characters or fewer"
+        !isBlank && newPassword.length < 8 -> "Password must be at least 8 characters"
+        !isBlank && !lengthValid -> "Password must be 128 characters or fewer"
         !isBlank && !passwordsMatch && confirmPassword.isNotEmpty() -> "Passwords do not match"
         else -> null
     }
-    val canConfirm = !busy && (isBlank || (lengthValid && passwordsMatch))
+    val canConfirm = !busy && !isBlank && lengthValid && passwordsMatch
 
     AlertDialog(
         onDismissRequest = {
@@ -3241,8 +3240,7 @@ private fun ChangeCloudPasswordDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "Set a new password to protect your cloud backup. " +
-                        "Leave blank to use default (Support ID) protection.",
+                    "Set a new password to protect your cloud backup.",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 OutlinedTextField(
@@ -3278,8 +3276,7 @@ private fun ChangeCloudPasswordDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val password = if (isBlank) null else newPassword.toCharArray()
-                    onConfirm(password)
+                    onConfirm(newPassword.toCharArray())
                 },
                 enabled = canConfirm
             ) { Text("Change") }

@@ -218,27 +218,32 @@ data class BackupSettings(
     }
 
     companion object {
+        /**
+         * AI credentials are left out: whoever opens a backup must not gain access to the user's
+         * AI accounts and their request history (PIA privacy issue 2). Restore keeps the keys
+         * already on the device; on a new device the user enters them again.
+         */
         fun from(settings: AppSettings): BackupSettings = BackupSettings(
             provider = settings.provider.name,
-            openRouterApiKeys = settings.keysFor(AiProvider.OPENROUTER),
-            openRouterOAuthKey = settings.openRouterOAuthKey,
+            openRouterApiKeys = emptyList(),
+            openRouterOAuthKey = "",
             openRouterModel = settings.openRouterModel,
             openRouterTextModel = settings.openRouterTextModel,
-            geminiApiKeys = settings.keysFor(AiProvider.GEMINI),
+            geminiApiKeys = emptyList(),
             geminiModel = settings.geminiModel,
             geminiTextModel = settings.geminiTextModel,
             ollamaBaseUrl = settings.ollamaBaseUrl,
             ollamaModel = settings.ollamaModel,
             ollamaTextModel = settings.ollamaTextModel,
             ollamaUseCloud = settings.ollamaUseCloud,
-            ollamaApiKeys = settings.keysFor(AiProvider.OLLAMA),
-            openAiApiKeys = settings.keysFor(AiProvider.OPENAI),
+            ollamaApiKeys = emptyList(),
+            openAiApiKeys = emptyList(),
             openAiModel = settings.openAiModel,
             openAiTextModel = settings.openAiTextModel,
             customBaseUrl = settings.customBaseUrl,
             customModel = settings.customModel,
             customTextModel = settings.customTextModel,
-            customApiKeys = settings.keysFor(AiProvider.CUSTOM),
+            customApiKeys = emptyList(),
             aiAutoFailoverOpenRouter = settings.autoFailoverFor(AiProvider.OPENROUTER),
             aiAutoFailoverGemini = settings.autoFailoverFor(AiProvider.GEMINI),
             aiAutoFailoverOllama = settings.autoFailoverFor(AiProvider.OLLAMA),

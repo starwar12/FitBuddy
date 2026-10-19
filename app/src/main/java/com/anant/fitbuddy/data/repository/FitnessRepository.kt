@@ -344,9 +344,9 @@ class FitnessRepository(
      * Requires [AppSettings.cloudBackupEnabled] and a non-blank Support ID.
      */
     /**
-     * Password used to seal an upload: the stored custom password when [AppSettings.cloudBackupPasswordSet]
-     * is on, otherwise the Support ID. If a custom password is flagged but can't be recovered on this
-     * device, this throws rather than silently downgrading the cloud copy to Support-ID protection.
+     * Password used to seal an upload: always the user's custom password. The Support ID is
+     * shared in bug reports and addresses the backup on the server, so it is never used as a key
+     * (PIA privacy issue 2); without a recoverable custom password the upload is refused.
      */
     private suspend fun resolveUploadPassword(settings: AppSettings, supportId: String): CharArray {
         if (settings.cloudBackupPasswordSet) {
@@ -358,8 +358,20 @@ class FitnessRepository(
                     "Settings → cloud backup password before uploading."
             )
         }
-        return supportId.toCharArray()
+        error("Set a cloud backup password before uploading.")
     }
+
+    /**
+     * Password that opens the backup currently in the cloud. Backups made before passwords became
+     * mandatory are sealed with the Support ID; they can still be read once so that setting a
+     * password re-seals them.
+     */
+    private suspend fun resolveExistingBackupPassword(settings: AppSettings, supportId: String): CharArray =
+        if (settings.cloudBackupPasswordSet) {
+            resolveUploadPassword(settings, supportId)
+        } else {
+            supportId.toCharArray()
+        }
 
     /**
      * Persists [password] (encrypted, device-local) and flags a custom cloud password so later
@@ -742,9 +754,11 @@ class FitnessRepository(
         if (BuildConfig.DEBUG) {
             error("Cloud backup uploads are disabled in debug builds")
         }
-        // Validate: non-blank password must be 8–128 characters
-        val isBlank = newPassword == null || newPassword.isEmpty() || newPassword.all { it.isWhitespace() }
-        if (!isBlank && (newPassword.size < 8 || newPassword.size > 128)) {
+        // Validate: a password of 8–128 characters is mandatory (PIA privacy issue 2)
+        if (newPassword == null || newPassword.isEmpty() || newPassword.all { it.isWhitespace() }) {
+            throw IllegalArgumentException("Cloud backup needs a password of 8–128 characters")
+        }
+        if (newPassword.size < 8 || newPassword.size > 128) {
             throw IllegalArgumentException("Password must be 8–128 characters")
         }
         if (!MongoUriVault.isAvailable()) {
@@ -755,8 +769,8 @@ class FitnessRepository(
         val dbName = settings.mongoDbName.ifBlank { AppSettings.DEFAULT_MONGO_DB_NAME }
         val collName = settings.mongoCollectionName.ifBlank { AppSettings.DEFAULT_MONGO_COLLECTION }
 
-        val oldPassword = resolveUploadPassword(settings, supportId)
-        val effectivePassword = if (isBlank) supportId.toCharArray() else newPassword.copyOf()
+        val oldPassword = resolveExistingBackupPassword(settings, supportId)
+        val effectivePassword = newPassword.copyOf()
         try {
             val chain = runCatching {
                 mongoBackupRepository.downloadChain(
@@ -814,19 +828,13 @@ class FitnessRepository(
                     BackupContentHasher.hash(data, backupManager::encode)
                 )
             }
-            if (isBlank) {
-                settingsRepository.setCloudBackupPasswordBlob(null)
-            } else {
-                settingsRepository.setCloudBackupPasswordBlob(
-                    BackupPasswordStore.encrypt(effectivePassword)
-                )
-            }
-            settingsRepository.setCloudBackupPasswordSet(!isBlank)
+            settingsRepository.setCloudBackupPasswordBlob(BackupPasswordStore.encrypt(effectivePassword))
+            settingsRepository.setCloudBackupPasswordSet(true)
             settingsRepository.setMongoUploadStatus(ok = true)
         } finally {
             oldPassword.fill('\u0000')
             effectivePassword.fill('\u0000')
-            newPassword?.fill('\u0000')
+            newPassword.fill('\u0000')
         }
     }
 

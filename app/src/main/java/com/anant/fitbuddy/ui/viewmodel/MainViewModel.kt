@@ -2758,11 +2758,10 @@ class MainViewModel(
 
     /**
      * Enables cloud backup and performs the first upload using [password] (Requirement 12).
-     * A blank/null password falls back to the Support ID (Requirement 12.4); length validation
-     * (8–128 for non-blank) happens in the enable dialog before this is called (Requirement 12.5).
-     * A non-blank password is stored encrypted (Android Keystore, device-local) so subsequent
-     * manual/auto uploads keep using it; a blank password uses the Support-ID default. On upload
-     * failure the toggle stays enabled and a retry runs on the next auto-upload.
+     * The password (8–128 characters) is mandatory; a blank one is rejected rather than falling
+     * back to the Support ID (PIA privacy issue 2). It is stored encrypted (Android Keystore,
+     * device-local) so subsequent manual/auto uploads keep using it. On upload failure the toggle
+     * stays enabled and a retry runs on the next auto-upload.
      */
     fun enableCloudBackup(password: CharArray?) {
         if (BuildConfig.DEBUG) {
@@ -2774,26 +2773,17 @@ class MainViewModel(
         }
         viewModelScope.launch {
             _mongoBackupBusy.value = true
-            val isBlank = password == null || password.isEmpty() || password.all { it.isWhitespace() }
             runCatching {
                 settingsRepository.ensureSupportId()
                 val current = settingsRepository.settings.first()
                 settingsRepository.save(
                     current.copy(cloudBackupEnabled = true, cloudAutoUploadEnabled = true)
                 )
-                // First upload seals with the chosen password (blank → Support ID).
+                // First upload seals with the user's password (mandatory, PIA privacy issue 2).
                 repository.changeCloudPassword(password)
             }
                 .onSuccess {
-                    _analysisState.update {
-                        it.copy(
-                            userMessage = if (isBlank) {
-                                "Cloud backup enabled with default (Support ID) protection"
-                            } else {
-                                "Cloud backup enabled and encrypted"
-                            }
-                        )
-                    }
+                    _analysisState.update { it.copy(userMessage = "Cloud backup enabled and encrypted") }
                 }
                 .onFailure { e ->
                     _analysisState.update {
