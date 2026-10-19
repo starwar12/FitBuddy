@@ -1,0 +1,230 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" width="1400" height="900" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <style>
+      .t { font-size: 13px; font-weight: 600; fill: #0f172a; }
+      .d { font-size: 11px; fill: #475569; }
+      .lab { font-size: 11px; font-weight: 700; letter-spacing: 1px; fill: #334155; }
+      .fl { font-size: 10.5px; fill: #334155; }
+      .num { font-size: 11px; font-weight: 700; fill: #ffffff; }
+      .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1; }
+      .line { fill: none; stroke: #334155; stroke-width: 1.4; }
+      .dash { fill: none; stroke: #334155; stroke-width: 1.4; stroke-dasharray: 5 4; }
+      .thin { fill: none; stroke: #64748b; stroke-width: 1.2; }
+    </style>
+  </defs>
+
+  <rect width="1400" height="900" fill="#ffffff"/>
+  <text x="24" y="36" font-size="22" font-weight="700" fill="#0f172a">FitBuddy — system architecture</text>
+  <text x="24" y="58" font-size="13" fill="#64748b">Components on the user's Android device, the parties FitBuddy exchanges data with, and the numbered data flows (1)–(9)</text>
+
+  <!-- User -->
+  <rect x="30" y="122" width="130" height="118" rx="10" fill="#f8fafc" stroke="#94a3b8"/>
+  <circle cx="95" cy="146" r="11" fill="none" stroke="#334155" stroke-width="1.6"/>
+  <path d="M95,157 L95,180 M80,166 L110,166 M95,180 L84,196 M95,180 L106,196" fill="none" stroke="#334155" stroke-width="1.6"/>
+  <text x="95" y="214" text-anchor="middle" class="t">User</text>
+  <text x="95" y="230" text-anchor="middle" class="d">data subject</text>
+  <line x1="160" y1="168" x2="220" y2="168" class="line" marker-end="url(#arr)"/>
+  <text x="30" y="262" class="d">enters photos, meal text,</text>
+  <text x="30" y="276" class="d">name, profile, measurements</text>
+
+  <!-- Android device -->
+  <rect x="180" y="80" width="750" height="740" rx="18" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/>
+  <text x="196" y="98" class="lab">ANDROID DEVICE</text>
+
+  <!-- FitBuddy sandbox -->
+  <rect x="206" y="108" width="704" height="496" rx="12" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+  <text x="222" y="127" class="lab" fill="#1e40af">FITBUDDY APP · private app sandbox</text>
+
+  <!-- UI -->
+  <rect x="222" y="136" width="672" height="64" rx="8" class="box"/>
+  <text x="558" y="161" text-anchor="middle" class="t">User interface</text>
+  <text x="558" y="181" text-anchor="middle" class="d">dashboard · photo, text &amp; barcode logging · meal review · workouts · progress &amp; AI coach · profile &amp; settings</text>
+  <line x1="558" y1="202" x2="558" y2="236" class="thin" marker-start="url(#arr)" marker-end="url(#arr)"/>
+
+  <!-- Logic -->
+  <text x="222" y="230" class="lab">APPLICATION LOGIC</text>
+  <g text-anchor="middle">
+    <rect x="222" y="244" width="162" height="110" rx="8" class="box"/>
+    <text x="303" y="266" class="t">Logging &amp; AI analysis</text>
+    <text x="303" y="286" class="d">adds profile context and</text>
+    <text x="303" y="301" class="d">regional prompts, calls</text>
+    <text x="303" y="316" class="d">the chosen AI provider;</text>
+    <text x="303" y="331" class="d">offline fallback</text>
+    <rect x="392" y="244" width="162" height="110" rx="8" class="box"/>
+    <text x="473" y="266" class="t">Targets &amp; progress</text>
+    <text x="473" y="286" class="d">calorie &amp; macro targets</text>
+    <text x="473" y="301" class="d">computed on the device;</text>
+    <text x="473" y="316" class="d">AI progress insights</text>
+    <text x="473" y="331" class="d">and coach chat</text>
+    <rect x="562" y="244" width="162" height="110" rx="8" class="box"/>
+    <text x="643" y="266" class="t">Backup &amp; restore</text>
+    <text x="643" y="286" class="d">local export file</text>
+    <text x="643" y="301" class="d">(optional password);</text>
+    <text x="643" y="316" class="d">encrypted cloud backup</text>
+    <text x="643" y="331" class="d">(opt-in)</text>
+    <rect x="732" y="244" width="162" height="110" rx="8" class="box"/>
+    <text x="813" y="266" class="t">Telemetry</text>
+    <text x="813" y="286" class="d">Sentry SDK:</text>
+    <text x="813" y="301" class="d">crash reports and</text>
+    <text x="813" y="316" class="d">daily heartbeats</text>
+  </g>
+  <line x1="558" y1="356" x2="558" y2="376" class="thin" marker-start="url(#arr)" marker-end="url(#arr)"/>
+
+  <!-- Local storage -->
+  <rect x="222" y="378" width="672" height="118" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+  <text x="234" y="396" class="lab">LOCAL STORAGE (unencrypted by the app)</text>
+  <g text-anchor="middle">
+    <rect x="234" y="404" width="208" height="82" rx="8" class="box"/>
+    <text x="338" y="424" class="t">Health database</text>
+    <text x="338" y="440" class="d">Room / SQLite</text>
+    <text x="338" y="456" class="d">profile, meals, workouts,</text>
+    <text x="338" y="471" class="d">body measurements, presets</text>
+    <rect x="454" y="404" width="208" height="82" rx="8" class="box"/>
+    <text x="558" y="424" class="t">Settings store</text>
+    <text x="558" y="440" class="d">DataStore</text>
+    <text x="558" y="456" class="d">name, support ID, region,</text>
+    <text x="558" y="471" class="d">AI provider &amp; API keys</text>
+    <rect x="674" y="404" width="208" height="82" rx="8" class="box"/>
+    <text x="778" y="424" class="t">Files &amp; cache</text>
+    <text x="778" y="440" class="d">exercise catalog,</text>
+    <text x="778" y="456" class="d">export files,</text>
+    <text x="778" y="471" class="d">diagnostic log</text>
+  </g>
+
+  <!-- Integration row -->
+  <g text-anchor="middle">
+    <rect x="222" y="512" width="218" height="76" rx="8" class="box"/>
+    <text x="331" y="540" class="t">Measurement bridge</text>
+    <text x="331" y="558" class="d">exported ContentProvider</text>
+    <text x="331" y="573" class="d">(shares body measurements)</text>
+    <rect x="452" y="512" width="218" height="76" rx="8" class="box"/>
+    <text x="561" y="540" class="t">Scheduled jobs</text>
+    <text x="561" y="558" class="d">log reminders, donation</text>
+    <text x="561" y="573" class="d">reminders, heartbeat alarm</text>
+  </g>
+
+  <!-- Android OS -->
+  <text x="196" y="628" class="lab">ANDROID OS</text>
+  <g text-anchor="middle">
+    <rect x="452" y="636" width="103" height="64" rx="8" class="box"/>
+    <text x="503" y="673" class="t">Camera</text>
+    <rect x="565" y="636" width="103" height="64" rx="8" class="box"/>
+    <text x="616" y="664" class="t">Alarms &amp;</text>
+    <text x="616" y="682" class="t">notifications</text>
+    <rect x="678" y="636" width="103" height="64" rx="8" class="box"/>
+    <text x="729" y="673" class="t">Share sheet</text>
+    <rect x="791" y="636" width="103" height="64" rx="8" class="box"/>
+    <text x="842" y="664" class="t">Auto Backup</text>
+    <text x="842" y="682" class="t">agent</text>
+  </g>
+
+  <!-- Other apps -->
+  <text x="196" y="726" class="lab">OTHER APPS</text>
+  <g text-anchor="middle">
+    <rect x="222" y="736" width="218" height="64" rx="8" class="box"/>
+    <text x="331" y="762" class="t">FreeScale</text>
+    <text x="331" y="780" class="d">companion smart-scale app</text>
+    <rect x="629" y="736" width="200" height="64" rx="8" class="box"/>
+    <text x="729" y="762" class="t">App chosen by the user</text>
+    <text x="729" y="780" class="d">receives an exported backup</text>
+  </g>
+
+  <!-- On-device flows -->
+  <line x1="842" y1="496" x2="842" y2="634" class="line" marker-end="url(#arr)"/>
+  <text x="850" y="560" class="fl">database &amp;</text>
+  <text x="850" y="574" class="fl">settings</text>
+  <line x1="331" y1="590" x2="331" y2="734" class="line" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  <circle cx="331" cy="662" r="10" fill="#334155"/><text x="331" y="666" text-anchor="middle" class="num">8</text>
+  <text x="348" y="660" class="fl">measurements</text>
+  <text x="348" y="674" class="fl">(read &amp; write)</text>
+  <line x1="729" y1="702" x2="729" y2="734" class="line" marker-end="url(#arr)"/>
+  <circle cx="752" cy="718" r="10" fill="#334155"/><text x="752" y="722" text-anchor="middle" class="num">9</text>
+
+  <!-- External: AI providers -->
+  <rect x="1070" y="108" width="310" height="122" rx="10" fill="#f5f3ff" stroke="#a78bfa"/>
+  <text x="1086" y="130" class="t">AI provider (chosen by the user)</text>
+  <text x="1086" y="152" class="d">• OpenRouter (optional OAuth sign-in)</text>
+  <text x="1086" y="170" class="d">• Google Gemini</text>
+  <text x="1086" y="188" class="d">• Ollama: self-hosted on the LAN, or cloud</text>
+  <text x="1086" y="206" class="d">• OpenAI or another compatible host</text>
+
+  <!-- External: public services -->
+  <rect x="1070" y="256" width="310" height="116" rx="10" fill="#f5f3ff" stroke="#a78bfa"/>
+  <text x="1086" y="278" class="t">Public content &amp; data services</text>
+  <text x="1086" y="300" class="d">• Open Food Facts: packaged-food data</text>
+  <text x="1086" y="318" class="d">• jsDelivr CDN: exercise catalog, GIFs, emoji</text>
+  <text x="1086" y="336" class="d">• GitHub: supporter list, releases</text>
+  <text x="1086" y="354" class="d">• F-Droid: update check (F-Droid build)</text>
+
+  <!-- External: developer-operated -->
+  <rect x="1070" y="396" width="310" height="192" rx="10" fill="#fff7ed" stroke="#fb923c"/>
+  <text x="1086" y="418" class="t">Operated by the FitBuddy developer</text>
+  <rect x="1086" y="428" width="278" height="44" rx="8" class="box"/>
+  <text x="1098" y="447" class="t">Sentry</text>
+  <text x="1098" y="463" class="d">developer's project: crashes &amp; heartbeats</text>
+  <rect x="1086" y="496" width="132" height="76" rx="8" class="box"/>
+  <text x="1152" y="526" text-anchor="middle" class="t">Vercel proxy</text>
+  <text x="1152" y="543" text-anchor="middle" class="d">backup API &amp;</text>
+  <text x="1152" y="557" text-anchor="middle" class="d">Sentry relay</text>
+  <rect x="1246" y="496" width="118" height="76" rx="8" class="box"/>
+  <text x="1305" y="526" text-anchor="middle" class="t">MongoDB Atlas</text>
+  <text x="1305" y="543" text-anchor="middle" class="d">backup</text>
+  <text x="1305" y="557" text-anchor="middle" class="d">storage</text>
+  <line x1="1218" y1="534" x2="1244" y2="534" class="line" marker-end="url(#arr)"/>
+  <line x1="1152" y1="496" x2="1152" y2="474" class="dash" marker-end="url(#arr)"/>
+
+  <!-- External: Google -->
+  <rect x="1070" y="636" width="310" height="64" rx="10" fill="#f5f3ff" stroke="#a78bfa"/>
+  <text x="1086" y="662" class="t">Google account</text>
+  <text x="1086" y="682" class="d">Android Auto Backup storage</text>
+
+  <!-- External flows -->
+  <line x1="910" y1="150" x2="1068" y2="150" class="line" marker-end="url(#arr)"/>
+  <circle cx="944" cy="150" r="10" fill="#334155"/><text x="944" y="154" text-anchor="middle" class="num">1</text>
+  <text x="960" y="144" class="fl">photo/text + profile</text>
+
+  <line x1="910" y1="200" x2="1068" y2="200" class="line" marker-end="url(#arr)"/>
+  <circle cx="944" cy="200" r="10" fill="#334155"/><text x="944" y="204" text-anchor="middle" class="num">2</text>
+  <text x="960" y="194" class="fl">history + coach chat</text>
+
+  <line x1="910" y1="292" x2="1068" y2="292" class="line" marker-end="url(#arr)"/>
+  <circle cx="944" cy="292" r="10" fill="#334155"/><text x="944" y="296" text-anchor="middle" class="num">3</text>
+  <text x="960" y="286" class="fl">barcode lookup</text>
+
+  <line x1="910" y1="340" x2="1068" y2="340" class="line" marker-end="url(#arr)"/>
+  <circle cx="944" cy="340" r="10" fill="#334155"/><text x="944" y="344" text-anchor="middle" class="num">4</text>
+  <text x="960" y="334" class="fl">catalog, updates</text>
+
+  <line x1="910" y1="450" x2="1084" y2="450" class="line" marker-end="url(#arr)"/>
+  <circle cx="944" cy="450" r="10" fill="#334155"/><text x="944" y="454" text-anchor="middle" class="num">5</text>
+  <text x="960" y="444" class="fl">crashes, heartbeats</text>
+  <line x1="910" y1="510" x2="1084" y2="510" class="dash" marker-end="url(#arr)"/>
+  <text x="960" y="504" class="fl">(5) if Sentry blocked</text>
+
+  <line x1="910" y1="556" x2="1084" y2="556" class="line" marker-end="url(#arr)"/>
+  <circle cx="944" cy="556" r="10" fill="#334155"/><text x="944" y="560" text-anchor="middle" class="num">6</text>
+  <text x="960" y="550" class="fl">encrypted backup</text>
+
+  <line x1="894" y1="668" x2="1068" y2="668" class="line" marker-end="url(#arr)"/>
+  <circle cx="944" cy="668" r="10" fill="#334155"/><text x="944" y="672" text-anchor="middle" class="num">7</text>
+  <text x="960" y="662" class="fl">all app data</text>
+
+  <!-- Legend -->
+  <rect x="24" y="842" width="18" height="14" rx="3" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="50" y="854" class="d">FitBuddy app on the user's device</text>
+  <rect x="270" y="842" width="18" height="14" rx="3" fill="#ffffff" stroke="#64748b"/>
+  <text x="296" y="854" class="d">Android OS and other apps on the device</text>
+  <rect x="560" y="842" width="18" height="14" rx="3" fill="#fff7ed" stroke="#fb923c"/>
+  <text x="586" y="854" class="d">service operated by the FitBuddy developer</text>
+  <rect x="870" y="842" width="18" height="14" rx="3" fill="#f5f3ff" stroke="#a78bfa"/>
+  <text x="896" y="854" class="d">independent third party</text>
+  <line x1="1070" y1="849" x2="1104" y2="849" class="line" marker-end="url(#arr)"/>
+  <text x="1112" y="854" class="d">data flow</text>
+  <line x1="1190" y1="849" x2="1224" y2="849" class="dash" marker-end="url(#arr)"/>
+  <text x="1232" y="854" class="d">fallback route</text>
+  <circle cx="33" cy="878" r="9" fill="#334155"/><text x="33" y="882" text-anchor="middle" class="num" font-size="10">n</text>
+  <text x="50" y="882" class="d">data flow number, described in the text</text>
+</svg>

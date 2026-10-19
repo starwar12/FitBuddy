@@ -1,0 +1,153 @@
+% Application description for the FitBuddy PIA (verified against source at commit 28d1adb, v3.2.82).
+% Required in the preamble:
+%   \usepackage{booktabs}
+%   \usepackage{tabularx}
+%   \usepackage{svg}        % or convert the SVG to PDF and use \includegraphics
+%   \newcolumntype{L}{>{\raggedright\arraybackslash}X}
+% Citations refer to fitbuddy_refs.bib.
+
+\section{Application Description}
+\label{sec:application}
+
+FitBuddy is a free, open-source (GPL-3.0) health tracker for Android, developed by a single
+developer and distributed through GitHub and F-Droid~\cite{fitbuddy-repo,fitbuddy-fdroid}. We
+assess version 3.2.82 (commit \texttt{28d1adb}); all statements about the implementation were
+verified in its source code. Where the code does not reveal how a component behaves, we state
+our assumption explicitly.
+
+\subsection{Functionality}
+Users log meals and workouts by taking a photo or typing a free-text description. A large
+language model (LLM) estimates the calories and macronutrients, after which the user reviews the
+estimate, adjusts ingredient weights and saves it. Packaged foods can be scanned by barcode.
+Further features are a daily dashboard, reusable meal presets, structured workouts with an
+exercise catalog, body-measurement tracking, progress charts, and an AI ``coach'' that comments on
+the user's progress. \emph{Region packs} adapt prompts and staple foods to India, North America,
+Europe or Latin America.
+
+During onboarding, the user must connect an AI provider and enter their first and last name, age,
+height, weight, optional sex, activity level and goal. Calorie targets are computed on the
+device; the AI only picks one of several pre-computed plans.
+
+\subsection{Stakeholders}
+\begin{itemize}
+  \item \textbf{Users} are the data subjects. They also act as \emph{operators}: they choose the
+        AI provider, create the API key and thereby hold the contract with that provider. Users
+        who donate become \emph{supporters} and may appear on a public supporter list.
+  \item \textbf{The developer} writes and releases the app, but also \emph{operates} the
+        server-side services (a Sentry project, a proxy on Vercel and a MongoDB Atlas database)
+        and develops the companion app FreeScale. For telemetry and cloud backups, the developer
+        determines the purposes and means of processing and therefore acts as
+        controller~\cite{gdpr}.
+  \item \textbf{AI providers} (OpenRouter, Google Gemini, Ollama, OpenAI or any compatible host)
+        receive photos, descriptions and profile data. With a self-hosted Ollama server, the user
+        is their own provider.
+  \item \textbf{Infrastructure and platform providers}: Sentry, Vercel and MongoDB process data
+        on behalf of the developer; Google stores the Android backup; GitHub and F-Droid
+        distribute the app and serve update information.
+  \item \textbf{Public data services}: Open Food Facts~\cite{off-api} (product data) and the
+        jsDelivr CDN (exercise catalog and images).
+\end{itemize}
+Roles overlap: Google is both a possible AI provider (Gemini) and the backup host, GitHub hosts
+both the code and the supporter list, and the developer is involved on both sides of the
+FreeScale interface.
+
+\subsection{Collected Data and Purposes}
+Table~\ref{tab:data} lists the personal data that FitBuddy processes, why, and where it goes.
+Body measurements, dietary and activity records are \emph{data concerning health} and the region
+can indicate ethnic or cultural background; both are special categories of personal data under
+Art.~9 GDPR~\cite{gdpr}.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\caption{Personal data processed by FitBuddy. Flow numbers refer to Figure~\ref{fig:architecture}.}
+\label{tab:data}
+\begin{tabularx}{\textwidth}{@{}L L l@{}}
+\toprule
+\textbf{Data} & \textbf{Purpose} & \textbf{Leaves the device via} \\
+\midrule
+First and last name & Personalised greetings; usage statistics for the developer & 2, 5 \\
+Age, sex, height, weight, activity level, goal & Calorie targets; context for AI estimates & 1, 2, 6, 7 \\
+Body measurements (weight, body fat, BMR, muscle mass, further smart-scale values) & Progress
+  tracking & 1, 2, 6--8 \\
+Meals, ingredients, scanned barcodes, presets & Core logging function & 2, 3, 6, 7, 9 \\
+Meal photos and free-text descriptions & AI estimation; not stored on the device & 1 \\
+Workouts and exercise logs & Core logging function & 2, 6, 7, 9 \\
+Region & Adapting prompts and foods; revealed by the regional prompts & 1, 2 \\
+Support ID (random UUID) & Identifies cloud backups and crash reports & 5, 6 \\
+Device model, name and identifier & Crash diagnosis and usage statistics; labelling backups & 5, 6 \\
+AI API keys & Authenticating to the chosen AI provider & 1, 2, 6, 7 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+FitBuddy requests no location, contacts or storage permissions; the only sensitive permission is
+the camera. Photos are re-encoded before upload, which removes EXIF metadata such as GPS
+coordinates.
+
+\subsection{Architecture}
+Figure~\ref{fig:architecture} shows the architecture at an abstract level. The app is written in
+Kotlin and follows a layered design: a user interface, application logic, and local storage
+consisting of a SQLite database (via Room) for health records and a key--value store (Android
+DataStore) for settings, identifiers and API keys. There is no user account and no central
+application server. All communication with external parties is summarised as flows (1)--(9).
+
+\begin{figure}[htbp]
+  \centering
+  \includesvg[width=\textwidth]{fitbuddy_architecture}
+  \caption{Abstract architecture of FitBuddy and its data flows: (1) AI estimation, (2) progress
+  insights and coach chat, (3) barcode lookup, (4) catalog and update requests, (5) telemetry,
+  (6) cloud backup, (7) Android Auto Backup, (8) measurement exchange with FreeScale, (9) manual
+  export.}
+  \label{fig:architecture}
+\end{figure}
+
+\subsection{Design and Implementation Choices}
+\paragraph{Local-first storage.} All records stay on the device and can be deleted individually;
+there is no option to delete all data at once. The app adds no encryption of its own and relies
+on Android's file-based encryption.
+
+\paragraph{Bring your own AI provider.} Each AI request (flow 1) contains the photo or text plus a
+summary of the profile, today's calorie balance and the latest body measurement. Progress
+insights (flow 2) add 30 days of detailed history, monthly averages of older data and the first
+name. The user selects the provider; with a self-hosted Ollama server, the data stays in the
+user's own network, which is why unencrypted HTTP is allowed for user-configured servers.
+Failover between API keys and models never switches to another provider.
+
+\paragraph{Telemetry.} The app uses Sentry~\cite{sentry-android} for crash reports, configured
+without IP addresses and with a filter for secrets. Crash reporting is on by default in the
+GitHub build without asking, and off by default in the F-Droid build. Independently of this
+setting, a daily and post-update \emph{heartbeat} reports the user's full name, the date of their
+first log, the number of records, the AI provider and the device model. When Sentry is
+unreachable, for example because of a DNS-based blocker, telemetry is relayed through the
+developer's Vercel proxy.
+
+\paragraph{Backups.} Three backup mechanisms exist. Android Auto Backup~\cite{android-autobackup}
+copies all app data, including API keys, to the user's Google account (flow 7). An optional
+cloud backup (flow 6) uploads an AES-256-GCM-encrypted copy of all data to MongoDB Atlas through
+the developer's proxy, automatically at most every 12 hours. Its key is derived with PBKDF2 from
+a user-chosen password or, by default, from the support ID; the backup is stored and retrieved
+under that same ID and cannot be deleted from the app. Finally, users can export a backup file,
+which is unencrypted unless a password is set (flow 9).
+
+\paragraph{Integration with other apps.} The measurement bridge is an exported Android
+\texttt{ContentProvider} that lets FreeScale read all measurements and add new ones (flow 8). It
+accepts callers based on their package name.
+
+\paragraph{Other.} Barcodes are decoded on the device; only the barcode is sent to Open Food Facts
+(flow 3). The OpenRouter sign-in uses OAuth with PKCE~\cite{openrouter-oauth}. The GitHub and
+F-Droid builds share the same code and differ in crash-reporting default, update source and
+signing key.
+
+\subsection{Assumptions}
+\begin{itemize}
+  \item The server-side code of the developer's Vercel proxy is not public. We assume it stores
+        backups unchanged in MongoDB Atlas and forwards telemetry to Sentry without further
+        processing.
+  \item We treat the AI providers, Sentry, Google and Open Food Facts as black boxes that process
+        the received data according to their own policies; their retention periods are not
+        considered.
+  \item We consider a typical user in the European Union who installs the GitHub build and uses a
+        cloud-hosted AI provider. The companion app FreeScale is out of scope apart from its
+        interface with FitBuddy.
+\end{itemize}

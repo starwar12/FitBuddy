@@ -1,0 +1,304 @@
+% Threat model and LINDDUN privacy threats for FitBuddy (verified against source, version 3.2.82).
+% Required in the preamble:
+%   \usepackage{booktabs}
+%   \usepackage{tabularx}
+%   \newcolumntype{L}{>{\raggedright\arraybackslash}X}
+
+\section{Threat Model}
+\label{sec:threat-model}
+
+The threat model is derived from the architecture in Figure~\ref{fig:architecture} and was
+verified against the FitBuddy source code (version 3.2.82). We first describe the data flows
+that leave the application sandbox, then the information at risk, our trust assumptions, the
+trust boundaries, the potential adversaries, and finally the data protection roles. The privacy
+threats that follow from this model are analysed and prioritised in
+Section~\ref{sec:privacy-threats}.
+
+\subsection{Data Flows}
+FitBuddy is designed as a local-first application: there is no FitBuddy account and no central
+application server. Food, workout and body-measurement records are stored in an on-device Room
+(SQLite) database; settings, including the user's name and AI API keys, are stored in a
+Preferences DataStore. Meal photos are downscaled and re-encoded before upload, which strips EXIF
+metadata such as GPS coordinates, and are not stored in the database. Barcodes are decoded on the
+device. Nevertheless, personal data leaves the sandbox through the eight flows in
+Table~\ref{tab:flows}.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\caption{Data flows leaving the FitBuddy application sandbox.}
+\label{tab:flows}
+\begin{tabularx}{\textwidth}{@{}l L L L@{}}
+\toprule
+\textbf{ID} & \textbf{Data} & \textbf{Destination} & \textbf{Trigger / default} \\
+\midrule
+F1 & Meal photo or text, plus a \emph{user-state context}: age, sex, height, weight, goal,
+     activity level, calorie targets, today's intake and expenditure, and the latest body
+     measurement (weight, body fat, BMR, muscle mass)
+   & User-selected AI provider: OpenRouter, Google Gemini, Ollama (local or cloud) or an
+     OpenAI-compatible host
+   & Every AI-assisted food or workout log \\
+F2 & First name, profile, nutrition targets and their history, 30 days of daily nutrition,
+     exercise and body data, monthly averages of all older history, and the chat conversation
+   & Same AI provider
+   & Progress insights and AI coach chat \\
+F3 & Entire app-private storage: database and DataStore, including name, support ID and API
+     keys
+   & Google account (Android Auto Backup)
+   & Automatic, by the OS, when device backup is on \\
+F4 & AES-256-GCM-encrypted export of the whole database and settings (including API keys);
+     in plaintext: support ID, chunk IDs, user-defined device name, MAC address or
+     \texttt{ANDROID\_ID}
+   & Developer-operated proxy on Vercel $\rightarrow$ MongoDB Atlas
+   & Opt-in (off by default); once enabled, uploads automatically on app start, at most every
+     12\,h \\
+F5 & Daily and update \emph{heartbeats}: first and last name, signup date, record count, AI
+     provider, device manufacturer and model; crash reports with the support ID as user ID
+   & Sentry, directly or via the same Vercel proxy when Sentry is unreachable
+   & Heartbeats: always, in all builds. Crash reports: on by default in GitHub builds
+     (opt-out on first launch), off in F-Droid builds \\
+F6 & All body measurements (read) and new measurements (write)
+   & FreeScale companion app via an exported \texttt{ContentProvider}
+   & On request of the companion app \\
+F7 & Scanned barcodes, IP address; OAuth authorisation code
+   & Open Food Facts; jsDelivr and GitHub (exercise catalog, emoji, donor list, update check);
+     F-Droid; OpenRouter OAuth via the browser and a loopback server on \texttt{127.0.0.1}
+   & Barcode scan, catalog refresh, app start, OpenRouter sign-in \\
+F8 & Backup file (plaintext JSON unless a password is set) or diagnostic log
+   & Any app chosen by the user in the Android share sheet
+   & Manual export \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Information at Risk}
+Table~\ref{tab:assets} lists the assets processed by FitBuddy. The most important property is
+\emph{aggregation}: a single record is of limited value, but together the records form a
+longitudinal health profile that can be linked to a named person through the identifiers in A4.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\caption{Information at risk.}
+\label{tab:assets}
+\begin{tabularx}{\textwidth}{@{}l l L l L@{}}
+\toprule
+\textbf{ID} & \textbf{Asset} & \textbf{Examples} & \textbf{Flows} & \textbf{Sensitivity} \\
+\midrule
+A1 & Health \& body data
+   & Age, sex, height, weight, goals; smart-scale readings such as body fat, BMR, muscle mass,
+     visceral fat and metabolic age
+   & F1--F4, F6, F8 & Special category (GDPR Art.~9) \\
+A2 & Dietary record
+   & Food logs, ingredients, saved meals, meal photos, scanned products
+   & F1--F4, F7, F8
+   & High: can reveal illness, eating disorders, pregnancy or religion (e.g.\ halal, fasting);
+     photos may show surroundings or other people \\
+A3 & Activity data & Workouts, sessions, calories burned & F1--F4, F8 & Health data (Art.~9) \\
+A4 & Identity \& identifiers
+   & First and last name, support ID (persistent UUID), user-defined device name,
+     \texttt{ANDROID\_ID} or MAC, signup date
+   & F2--F5 & High: links all other assets to a person, across services \\
+A5 & Credentials
+   & AI provider API keys, OpenRouter OAuth key, cloud-backup password (encrypted with the
+     Android Keystore)
+   & F1, F3, F4, F8
+   & High: abuse of paid keys; access to provider-side request history \\
+A6 & Inferred \& conversational data
+   & Region, AI coach conversations, progress insights
+   & F1--F4
+   & High: region can indicate cultural or ethnic background (Art.~9); enables profiling \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Trust Assumptions}
+\begin{description}
+  \item[TA1 -- Android platform.] The OS, the application sandbox and the Android Keystore work as
+    specified and the device is not rooted. Other apps can therefore reach FitBuddy's data only
+    through components that the app deliberately exports.
+  \item[TA2 -- Transport security.] TLS to HTTPS endpoints is sound and validated against the
+    system CA store; no certificate pinning is used. This assumption does \emph{not} hold for
+    user-configured local endpoints, because cleartext HTTP is permitted application-wide
+    (\texttt{usesCleartextTraffic="true"}) to support self-hosted models on the LAN.
+  \item[TA3 -- The user.] The user controls the device and their Google account and chooses an
+    AI provider deliberately. We do \emph{not} assume that the user knows which profile data is
+    attached to each AI request, or that heartbeats are sent.
+  \item[TA4 -- AI providers are semi-trusted.] Providers perform the requested inference correctly
+    (honest-but-curious), but retention, logging, human review and training use are governed by
+    their own terms, which often permit training on free tiers. OpenRouter is a broker that
+    forwards requests to further model hosts.
+  \item[TA5 -- Developer infrastructure is semi-trusted.] The Sentry project, the Vercel proxy and
+    the MongoDB Atlas cluster are operated by the developer. We do not assume malicious intent,
+    but the developer can read anything sent in plaintext, and the infrastructure can be breached.
+    Its access control relies on one API key that is shared by all installations and embedded,
+    obfuscated, in every APK, so it must be considered public.
+  \item[TA6 -- Google backup.] The confidentiality of F3 depends on the security of the user's
+    Google account; backups are only end-to-end encrypted when the device has a screen lock.
+  \item[TA7 -- Out of scope.] Compromise of the build pipeline, third-party libraries or signing
+    keys, and attacks on the language models themselves (e.g.\ prompt injection that corrupts
+    estimates).
+\end{description}
+
+\subsection{Trust Boundaries}
+The architecture contains seven trust boundaries. Several of them are crossed
+\emph{without user interaction} for each transfer (F3, F4 once enabled, F5).
+
+\begin{description}
+  \item[TB1 -- App sandbox $\leftrightarrow$ other apps on the device (F6, F8).] The measurement
+    bridge is an exported \texttt{ContentProvider} without an Android permission; it authorises
+    callers only by comparing their package name to an allow-list. Manual exports are handed to
+    whichever app the user picks.
+  \item[TB2 -- Device $\leftrightarrow$ Google cloud (F3).] Crossed by the OS without application
+    control. The backup rules deliberately include all databases and preferences, including API
+    keys, so that a reinstall restores them.
+  \item[TB3 -- Device $\leftrightarrow$ AI provider (F1, F2).] The main boundary for health data:
+    each request carries profile and health context, not only the photo or text that needs
+    estimating. For LAN providers, the local network also lies on this boundary.
+  \item[TB4 -- Device $\leftrightarrow$ developer infrastructure (F4, F5).] When the Sentry host is
+    unreachable (e.g.\ because of a DNS-based blocker), telemetry is rerouted through the Vercel
+    proxy, so the user's own network controls do not enforce this boundary.
+  \item[TB5 -- Device $\leftrightarrow$ public services (F7).] Only query metadata crosses, but
+    barcodes reveal which products a user consumes, and every request reveals the user's IP
+    address.
+  \item[TB6 -- Device $\leftrightarrow$ person holding it.] Data at rest has no application-level
+    encryption (no SQLCipher, no encrypted preferences) and relies only on the OS's file-based
+    encryption while the device is locked.
+  \item[TB7 -- Support-ID holder $\leftrightarrow$ cloud backup (F4).] Backups are stored and
+    retrieved under the support ID (\texttt{/api/backup/\{supportId\}}). Since the proxy key is
+    public (TA5), \emph{knowing a support ID is sufficient to download that user's backup}. The
+    app tells users to share this ID when reporting a bug and to keep it safe for cloud restore,
+    so it acts both as a public identifier and as a credential.
+\end{description}
+
+\subsection{Potential Adversaries}
+Table~\ref{tab:adversaries} relates each adversary to the boundary it acts on and to the assets
+it can reach.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\caption{Adversaries, their capabilities, and the trust boundaries they attack.}
+\label{tab:adversaries}
+\begin{tabularx}{\textwidth}{@{}l L L l l@{}}
+\toprule
+\textbf{ID} & \textbf{Adversary} & \textbf{Capability} & \textbf{TB} & \textbf{Assets} \\
+\midrule
+ADV1 & Network attacker (public Wi-Fi, malicious LAN)
+     & HTTPS: metadata only (destination, timing, upload size, which reveal meal times).
+       Cleartext LAN endpoints: read and modify photos, health context and Bearer API keys
+     & TB3, TB5 & A1--A3, A5 \\
+ADV2 & Malicious app on the device
+     & If installed under the package name \texttt{com.anant.freescale} while the genuine
+       companion app is absent, it passes the allow-list check, exports all measurements and can
+       inject falsified ones
+     & TB1 & A1 \\
+ADV3 & Semi-trusted AI provider
+     & Receives every photo plus health context and, for the coach, months of history and the
+       first name; can retain, train on and link data to the account behind the API key
+     & TB3 & A1--A4, A6 \\
+ADV4 & Curious service operator (developer)
+     & Receives name, signup date and device data in daily heartbeats; holds all cloud backups
+       and can decrypt those made without a custom password, because the key is derived from
+       the support ID that is sent with them
+     & TB4, TB7 & A1--A6 \\
+ADV5 & Attacker breaching developer infrastructure
+     & Same as ADV4, but for all users at once (Sentry, Vercel, MongoDB Atlas)
+     & TB4 & A1--A6 \\
+ADV6 & Support-ID holder (anyone given the ID for a bug report, or who sees it)
+     & Extracts the proxy key from the APK, downloads the backup by support ID, and decrypts it
+       if no custom password was set
+     & TB7 & A1--A6 \\
+ADV7 & Person with physical access (partner, thief, forensic examiner)
+     & Unlocked device: plaintext database, API keys and unencrypted exports
+     & TB6, TB1 & A1--A6 \\
+ADV8 & Google account attacker
+     & Restores the Auto Backup on another device, obtaining health data and API keys
+     & TB2 & A1--A6 \\
+ADV9 & Public service observer (Open Food Facts, jsDelivr, GitHub)
+     & Links the user's IP address to scanned products and app usage
+     & TB5 & A2 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Two observations shape the analysis that follows. First, the most capable adversaries are not
+external attackers but parties that receive data \emph{by design} (ADV3, ADV4) or through an
+identifier that users are invited to share (ADV6). Their risk follows from design decisions
+rather than from implementation bugs. Second, the classic network eavesdropper is largely
+mitigated by TLS; the realistic network risk is confined to user-configured cleartext endpoints.
+
+\subsection{Data Protection Roles}
+Under the GDPR, the developer acts as \emph{controller} for F4 and F5, since they determine the
+purpose and means of the telemetry and backup infrastructure; Sentry, Vercel and MongoDB act as
+their processors. For F1 and F2 the responsibility is split: users bring their own API keys and
+therefore contract with the AI provider directly, while the application decides which personal
+data is attached to each request. Google processes F3 under the user's own Google account
+agreement. Because A1, A3 and possibly A6 are special-category data, processing in F1, F2, F4 and
+F5 requires explicit consent under Art.~9(2)(a) GDPR, and the developer is responsible for the
+accuracy of the information given to users (Art.~13).
+
+\section{Privacy Threats}
+\label{sec:privacy-threats}
+
+We elicited privacy threats by applying the LINDDUN categories (Linkability, Identifiability,
+Non-repudiation, Detectability, Disclosure of information, Unawareness and Non-compliance) to each
+data flow in Table~\ref{tab:flows}.
+
+\paragraph{Prioritisation criteria.} Each threat receives two scores from 1 (low) to 3 (high):
+\begin{itemize}
+  \item \textbf{Impact:} the sensitivity of the data exposed (Art.~9 data scores highest), the
+        number of users affected, and whether the exposure contradicts what users are told.
+  \item \textbf{Likelihood:} whether the exposure happens by default or needs an opt-in or
+        unusual configuration, and how much effort the adversary needs.
+\end{itemize}
+The priority is the product of both scores. Ties are broken by the number of affected users.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\caption{Privacy threats, ordered by priority (I = impact, L = likelihood, P = I $\times$ L).
+LINDDUN: L = linkability, I = identifiability, D = disclosure of information,
+U = unawareness, Nc = non-compliance.}
+\label{tab:threats}
+\begin{tabularx}{\textwidth}{@{}l L l l c c c@{}}
+\toprule
+\textbf{ID} & \textbf{Threat} & \textbf{LINDDUN} & \textbf{Flow / Adv.} & \textbf{I} & \textbf{L} & \textbf{P} \\
+\midrule
+T1 & Daily heartbeats send the user's full name, signup date and usage counts to Sentry in all
+     builds, even after opting out of crash reporting. The onboarding screen states that the
+     user's name is never sent.
+   & U, Nc, I & F5 / ADV4--5 & 2 & 3 & 6 \\
+T2 & Every AI request carries health context that is not needed for the task; the coach
+     additionally sends the first name and months of history to a provider that may retain or
+     train on it
+   & D, Nc & F1, F2 / ADV3 & 3 & 2 & 6 \\
+T3 & The default backup key is derived from the support ID, which is stored next to the
+     ciphertext and shared in bug reports. With the public proxy key, anyone holding the ID can
+     download and decrypt the full history and API keys
+   & D & F4 / ADV4--6 & 3 & 2 & 6 \\
+T4 & Persistent identifiers (support ID, \texttt{ANDROID\_ID}, user-defined device name) link
+     telemetry, backups and the public donor list to one person
+   & L, I & F4, F5 / ADV4--5 & 2 & 2 & 4 \\
+T5 & Telemetry is rerouted through the developer's proxy when the user blocks Sentry, overriding
+     the user's network-level choice
+   & U, Nc & F5 / ADV4 & 2 & 2 & 4 \\
+T6 & Google Auto Backup copies all health data and API keys to the cloud without informing the
+     user
+   & D, U & F3 / ADV8 & 3 & 1 & 3 \\
+T7 & No application-level encryption at rest; manual exports are plaintext JSON by default
+   & D & F8 / ADV7 & 3 & 1 & 3 \\
+T8 & Cleartext HTTP is allowed app-wide, exposing photos, health context and API keys to the
+     local network when a LAN provider is used
+   & D & F1 / ADV1 & 3 & 1 & 3 \\
+T9 & The measurement bridge verifies callers by package name only, not by signing certificate
+   & D & F6 / ADV2 & 2 & 1 & 2 \\
+T10 & Barcode lookups link the user's IP address to the products they eat
+   & L & F7 / ADV9 & 1 & 2 & 2 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The three highest-priority threats share a pattern: they result from design choices rather than
+coding errors, and each conflicts with a statement or expectation given to the user. They are
+discussed in detail in the following sections.
