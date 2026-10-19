@@ -48,7 +48,7 @@ class TelemetryPrivacyTest {
         )
 
         val reportedSent = CrashReporter.sendHeartbeat(
-            HeartbeatInfo(aiProvider = "OPENROUTER", username = "Jane Doe", recordCount = 42)
+            HeartbeatInfo(aiProvider = "OPENROUTER", recordCount = 42)
         )
         Thread.sleep(1_000) // let Sentry's background transport attempt any upload
 
